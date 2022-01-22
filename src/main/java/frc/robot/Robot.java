@@ -1,21 +1,16 @@
-// Copyright (c) FIRST and other WPILib contributors.
-// Open Source Software; you can modify and/or share it under the terms of
-// the WPILib BSD license file in the root directory of this project.
-
 package frc.robot;
 
+import com.ctre.phoenix.motorcontrol.ControlMode;
 import com.ctre.phoenix.motorcontrol.VictorSPXControlMode;
 import com.ctre.phoenix.motorcontrol.can.VictorSPX;
 import com.revrobotics.CANSparkMax;
 import com.revrobotics.CANSparkMax.IdleMode;
 import com.revrobotics.CANSparkMaxLowLevel.MotorType;
-import edu.wpi.first.cameraserver.CameraServer;
-import edu.wpi.first.cscore.VideoSink;
 import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj.Timer;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 
-import edu.wpi.first.cscore.UsbCamera;
 
 /**
  * The VM is configured to automatically run this class, and to call the functions corresponding to
@@ -39,6 +34,9 @@ public class Robot extends TimedRobot {
   boolean burstMode = false;
   double lastBurstTime = 0;
 
+  double autoStart = 0;
+  boolean goForAuto = false;
+
 
   /**
    * This function is run when the robot is first started up and should be used for any
@@ -46,43 +44,68 @@ public class Robot extends TimedRobot {
    */
   @Override
   public void robotInit() {
-    driveRightA.setInverted(true);
-    driveRightB.setInverted(true);
+    driveLeftA.setInverted(true);
+    driveLeftA.burnFlash();
+    driveLeftB.setInverted(true);
+    driveLeftB.burnFlash();
+    driveRightA.setInverted(false);
+    driveRightA.burnFlash();
+    driveRightB.setInverted(false);
+    driveRightB.burnFlash();
+    
     arm.setInverted(false);
     arm.setIdleMode(IdleMode.kBrake);
-    
-    
-    UsbCamera cam = CameraServer.startAutomaticCapture(0);
-    cam.setFPS(20);
-    cam.setResolution(160, 120);
+    arm.burnFlash();
+
+    SmartDashboard.putBoolean("Go For Auto", false);
+    goForAuto = SmartDashboard.getBoolean("Go For Auto", false);
   }
 
-  /**
-   * This function is called every robot packet, no matter the mode. Use this for items like
-   * diagnostics that you want ran during disabled, autonomous, teleoperated and test.
-   *
-   * <p>This runs after the mode specific periodic functions, but before LiveWindow and
-   * SmartDashboard integrated updating.
-   */
   @Override
-  public void robotPeriodic() {}
-
-  /**
-   * This autonomous (along with the chooser code above) shows how to select between different
-   * autonomous modes using the dashboard. The sendable chooser code works with the Java
-   * SmartDashboard. If you prefer the LabVIEW Dashboard, remove all of the chooser code and
-   * uncomment the getString line to get the auto name from the text box below the Gyro
-   *
-   * <p>You can add additional auto modes by adding additional comparisons to the switch structure
-   * below with additional strings. If using the SendableChooser make sure to add them to the
-   * chooser code above as well.
-   */
-  @Override
-  public void autonomousInit() {}
+  public void autonomousInit() {
+    autoStart = Timer.getFPGATimestamp();
+    goForAuto = SmartDashboard.getBoolean("Go For Auto", false);
+  }
 
   /** This function is called periodically during autonomous. */
   @Override
-  public void autonomousPeriodic() {}
+  public void autonomousPeriodic() {
+    if(armUp){
+      if(Timer.getFPGATimestamp() - lastBurstTime < 0.5){
+        arm.set(0.5);
+      }
+      else{
+        arm.set(0.08);
+      }
+    }
+    else{
+      if(Timer.getFPGATimestamp() - lastBurstTime < 0.35){
+        arm.set(-0.5);
+      }
+      else{
+        arm.set(-0.13);
+      }
+    }
+
+    double autoTimeElapsed = Timer.getFPGATimestamp() - autoStart;
+    if(goForAuto){
+      if(autoTimeElapsed < 3){
+        intake.set(ControlMode.PercentOutput, -1);
+      }else if(autoTimeElapsed < 6){
+        intake.set(ControlMode.PercentOutput, 0);
+        driveLeftA.set(-0.3);
+        driveLeftB.set(-0.3);
+        driveRightA.set(-0.3);
+        driveRightB.set(-0.3);
+      }else{
+        intake.set(ControlMode.PercentOutput, 0);
+        driveLeftA.set(0);
+        driveLeftB.set(0);
+        driveRightA.set(0);
+        driveRightB.set(0);
+      }
+    }
+  }
 
   /** This function is called once when teleop is enabled. */
   @Override
@@ -91,8 +114,8 @@ public class Robot extends TimedRobot {
   /** This function is called periodically during operator control. */
   @Override
   public void teleopPeriodic() {
-    double forward = driverController.getRawAxis(1);
-    double turn = driverController.getRawAxis(2);
+    double forward = -driverController.getRawAxis(1);
+    double turn = -driverController.getRawAxis(2);
     
     double driveLeftPower = forward - turn;
     double driveRightPower = forward + turn;
@@ -140,19 +163,14 @@ public class Robot extends TimedRobot {
 
   }
 
-  /** This function is called once when the robot is disabled. */
   @Override
-  public void disabledInit() {}
-
-  /** This function is called periodically when disabled. */
-  @Override
-  public void disabledPeriodic() {}
-
-  /** This function is called once when test mode is enabled. */
-  @Override
-  public void testInit() {}
-  /** This function is called periodically during test mode. */
-  @Override
-  public void testPeriodic() {}
+  public void disabledInit() {
+    driveLeftA.set(0);
+    driveLeftB.set(0);
+    driveRightA.set(0);
+    driveRightB.set(0);
+    arm.set(0);
+    intake.set(ControlMode.PercentOutput, 0);
+  }
     
 }
